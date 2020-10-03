@@ -1,4 +1,4 @@
-service: upload-to-s3-ts
+service: uploadtos3ts
 
 frameworkVersion: '2'
 
@@ -19,14 +19,51 @@ provider:
   region: ${opt:region, 'us-east-1'}
   environment:
     BUCKET_NAME: ${env:BUCKET_NAME}
+    DB_HOSTNAME:
+      Fn::GetAtt:
+        - DBInstance
+        - Endpoint.Address
+    DB_PORT:
+      Fn::GetAtt:
+        - DBInstance
+        - Endpoint.Port
+    DB_NAME: '${self:service}_${self:provider.stage}_db'
+    DB_USERNAME: 'userpost'
+    DB_PASSWORD: '1234567890'
+    COGNITO_USER_POOL_ID:
+      Ref: UserPool
+    COGNITO_CLIENT_ID: 
+      Ref: UserPoolClient
 
 functions:
+  signup:
+    handler: src/signup.handler
+    events:
+      - http:
+          path: signup
+          method: post
+  signin:
+    handler: src/signin.handler
+    events:
+      - http:
+          path: signin
+          method: post
   getPresignedPostData:
     handler: src/getPresignedPostData.handler
     events:
       - http:
           path: getPresignedPostData/{fileName}
           method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+
+resources:
+  - ${file(resources/cognito.yml)}
+  - ${file(resources/rds.yml)}
+
+  
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
 #    - Effect: "Allow"
