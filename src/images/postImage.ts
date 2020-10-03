@@ -1,14 +1,31 @@
-import { APIGatewayProxyResult } from 'aws-lambda'
+import { HttpResponse, HttpResponseBody } from '../types'
 import { Client } from 'pg'
 
-export async function handler(event: any): Promise<APIGatewayProxyResult> {
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}
+
+export async function handler(event: any): HttpResponse {
   try {
-    const body = JSON.parse(event.body!)
+    const body: { 
+      key: string, 
+      src: string
+    } = JSON.parse(event.body)
     const { key, src } = body
-    const userId = event.requestContext.authorizer!.claims.email
+    const userId: string = event.requestContext.authorizer.claims.email
 
     if (!key || !src) {
-      return response(400, { error: 'You must specify key and src' })
+      const responseBody: HttpResponseBody = {
+        success: false,
+        error: 'You must specify key and src'
+      } 
+      return response(400, responseBody)
     }
 
     const client = new Client({
@@ -36,21 +53,23 @@ export async function handler(event: any): Promise<APIGatewayProxyResult> {
     const result = await client.query(`
       INSERT INTO public.images (userId, key, src) VALUES ('${userId}', '${key}', '${src}') RETURNING *;
     `)
-
     await client.end()
 
-    return response(200, { saved: result.rows })
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: { 
+        saved: result.rows 
+      }
+    }
+    
+    return response(200, responseBody)
   } catch (e) {
-    return response(500, { error: e.message })
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }
 
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
-  }
-}
+

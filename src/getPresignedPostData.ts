@@ -1,13 +1,19 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda'
+import { HttpEventRequest, HttpResponse, HttpResponseBody } from './types'
 import S3 from 'aws-sdk/clients/s3'
 import uniqid from 'uniqid'
 import mime from 'mime'
 
-type HttpEventRequest<T = null> = Omit<APIGatewayProxyEvent, 'pathParameters'> & {
-    pathParameters: T
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
 }
 
-export async function handler(event: HttpEventRequest<{ fileName: string }>): Promise<APIGatewayProxyResult> { 
+export async function handler(event: HttpEventRequest<{ fileName: string }>): HttpResponse { 
   try {
     const s3 = new S3()
     const { fileName } = event.pathParameters
@@ -19,7 +25,7 @@ export async function handler(event: HttpEventRequest<{ fileName: string }>): Pr
       Expires: 600,
       Bucket: process.env.BUCKET_NAME,
       Conditions: [
-        ['content-length-range', 100, 10000000],  // 100Byte - 10MB
+        ['content-length-range', 100, 10000000],
         {'acl': 'public-read'}
       ],
       Fields: {
@@ -31,18 +37,17 @@ export async function handler(event: HttpEventRequest<{ fileName: string }>): Pr
 
     const presignedPostData = s3.createPresignedPost(params)
 
-    return response(200, { data: presignedPostData })
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: presignedPostData
+    }
+    
+    return response(200, responseBody)
   } catch (e) {
-    return response(500, { error: e.message })
-  }
-}
-
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }

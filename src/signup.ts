@@ -1,15 +1,20 @@
-import { APIGatewayProxyResult } from 'aws-lambda'
+import { UsersCredentials, HttpResponse, HttpResponseBody } from './types'
 import AWS from 'aws-sdk'
 import { Client } from 'pg'
 
 const cognitoIdentityServiceProvider = new AWS.CognitoIdentityServiceProvider()
 
-interface UsersCredentials {
-  username: string
-  password: string
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
 }
 
-const saveUser = async (username: string, password: string): Promise<string> => {
+async function saveUser(username: string, password: string): Promise<string> {
   const client = new Client({
     host: process.env.DB_HOSTNAME,
     database: process.env.DB_NAME,
@@ -25,9 +30,7 @@ const saveUser = async (username: string, password: string): Promise<string> => 
     .then((result) => result.rows[0].exists)
 
   if (!tableExists) {
-    await client.query(`
-      CREATE TABLE public.users (id TEXT PRIMARY KEY, password TEXT NOT NULL);
-    `)
+    await client.query(`CREATE TABLE public.users (id TEXT PRIMARY KEY, password TEXT NOT NULL);`)
   }
 
   return new Promise((resolve, reject) => {
@@ -43,13 +46,17 @@ const saveUser = async (username: string, password: string): Promise<string> => 
   })
 }
 
-export async function handler(event: any): Promise<APIGatewayProxyResult> {
+export async function handler(event: any): HttpResponse {
   try {
-    const body = JSON.parse(event.body!) as UsersCredentials
+    const body = JSON.parse(event.body) as UsersCredentials
     const { username, password } = body
 
     if (!username || !password) {
-      return response(400, { error: 'You must specify the username and password' })
+      const responseBody: HttpResponseBody = {
+        success: false,
+        error: 'You must specify the username and password'
+      } 
+      return response(400, responseBody)
     }
 
     await cognitoIdentityServiceProvider.signUp({
@@ -59,19 +66,19 @@ export async function handler(event: any): Promise<APIGatewayProxyResult> {
     }).promise()
 
     const userId = await saveUser(username, password)
-    
-    return response(200, { message: `Signed up successfully, please check your email: ${userId}` })
-  } catch (e) {
-    return response(e.statusCode, { error: e.message })
-  }
-}
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: { 
+        message: `Signed up successfully, please check your email: ${userId}` 
+      }
+    }
 
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
+    return response(200, responseBody)
+  } catch (e) {
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }

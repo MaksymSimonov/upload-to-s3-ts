@@ -1,8 +1,18 @@
-import { APIGatewayProxyResult } from 'aws-lambda'
+import { HttpResponse, HttpResponseBody } from '../types'
 import S3 from 'aws-sdk/clients/s3'
 import { Client } from 'pg'
 
-const deleteImgFromS3 = (key: string) => {
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}
+
+function deleteImgFromS3(key: string) {
   const s3 = new S3()
   const params = {  
     Bucket: process.env.BUCKET_NAME!,
@@ -12,14 +22,18 @@ const deleteImgFromS3 = (key: string) => {
   return s3.deleteObject(params).promise()
 }
 
-export async function handler(event: any): Promise<APIGatewayProxyResult> {
+export async function handler(event: any): HttpResponse {
   try {
-    const body = JSON.parse(event.body!)
+    const body: { key: string } = JSON.parse(event.body)
     const { key } = body
-    const userId = event.requestContext.authorizer!.claims.email
+    const userId: string = event.requestContext.authorizer.claims.email
     
     if (!key) {
-      return response(400, { error: 'You must specify key' })
+      const responseBody: HttpResponseBody = {
+        success: false,
+        error: 'You must specify key'
+      } 
+      return response(400, responseBody)
     }
 
     const client = new Client({
@@ -44,26 +58,22 @@ export async function handler(event: any): Promise<APIGatewayProxyResult> {
       `)
     }
 
-    const result = await client.query(`
-      DELETE FROM public.images WHERE userId = '${userId}' AND key = '${key}' RETURNING *;
-    `)
- 
+    const result = await client.query(`DELETE FROM public.images WHERE userId = '${userId}' AND key = '${key}' RETURNING *;`)
     await client.end()
 
     await deleteImgFromS3(key) 
 
-    return response(200, { deleted: result.rows })
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: { deleted: result.rows }
+    }
+    
+    return response(200, responseBody)
   } catch (e) {
-    return response(500, { error: e.message })
-  }
-}
-
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }

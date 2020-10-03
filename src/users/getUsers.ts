@@ -1,7 +1,17 @@
-import { APIGatewayProxyResult } from 'aws-lambda'
+import { HttpResponse, HttpResponseBody } from '../types'
 import { Client } from 'pg'
 
-export async function handler(): Promise<APIGatewayProxyResult> {
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}
+
+export async function handler(): HttpResponse {
   try {
     const client = new Client({
       host: process.env.DB_HOSTNAME,
@@ -20,27 +30,33 @@ export async function handler(): Promise<APIGatewayProxyResult> {
     if (tableExists) {
       const result = await client.query('SELECT public.users.id FROM public.users;')
       await client.end()
-      return response(200, { users: result.rows })
+
+      const responseBody: HttpResponseBody = {
+        success: true,
+        data: { 
+          users: result.rows 
+        }
+      }
+      return response(200, responseBody)
     }
 
-    await client.query(`
-      CREATE TABLE public.users (id TEXT PRIMARY KEY, password TEXT NOT NULL);
-    `)
-
+    await client.query(`CREATE TABLE public.users (id TEXT PRIMARY KEY, password TEXT NOT NULL);`)
     await client.end()
 
-    return response(200, { users: [] })
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: { 
+        users: [] 
+      }
+    }
+
+    return response(200, responseBody)
   } catch (e) {
-    return response(500, { error: e.message })
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }
 
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
-  }
-}

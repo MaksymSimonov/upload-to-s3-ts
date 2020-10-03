@@ -1,7 +1,17 @@
-import { APIGatewayProxyResult } from 'aws-lambda'
+import { HttpResponse, HttpResponseBody } from '../types'
 import { Client } from 'pg'
 
-export async function handler(): Promise<APIGatewayProxyResult> {
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}
+
+export async function handler(): HttpResponse {
   try {
     const client = new Client({
       host: process.env.DB_HOSTNAME,
@@ -20,7 +30,14 @@ export async function handler(): Promise<APIGatewayProxyResult> {
     if (tableExists) {
       const result = await client.query('SELECT * FROM public.images;')
       await client.end()
-      return response(200, { images: result.rows })
+
+      const responseBody: HttpResponseBody = {
+        success: true,
+        data: { 
+          images: result.rows 
+        }
+      }
+      return response(200, responseBody)
     }
 
     await client.query(` 
@@ -28,21 +45,22 @@ export async function handler(): Promise<APIGatewayProxyResult> {
         id SERIAL, userId TEXT NOT NULL, key TEXT NOT NULL, src TEXT NOT NULL, FOREIGN KEY (userId) REFERENCES users (id) ON DELETE CASCADE
       );
     `)
-
     await client.end()
 
-    return response(200, { images: [] })
+    const responseBody: HttpResponseBody = {
+      success: true,
+      data: { 
+        images: [] 
+      }
+    }
+    
+    return response(200, responseBody)
   } catch (e) {
-    return response(500, { error: e.message })
+    const responseBody: HttpResponseBody = {
+      success: false,
+      error: e.message
+    }
+    return response(e.statusCode, responseBody)
   }
 }
 
-function response(responseCode: number, body: object) {
-  return {
-    statusCode: responseCode,
-    body: JSON.stringify(body,
-      null,
-      2,
-    )
-  }
-}
