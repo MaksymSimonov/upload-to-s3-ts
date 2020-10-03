@@ -27,10 +27,12 @@ export async function handler(event: any): Promise<APIGatewayProxyResult> {
     .catch((e) => response(e.statusCode, { error: e.message }))
 }
 
-const response = (responseCode: number, body: object) => ({
-  statusCode: responseCode,
-  body: JSON.stringify(body,
-    null,
-    2,
-  ),
-})
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}

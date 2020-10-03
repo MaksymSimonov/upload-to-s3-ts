@@ -37,11 +37,12 @@ export async function handler(event: HttpEventRequest<{ fileName: string }>): Pr
   }
 }
 
-const response = (responseCode: number, body: object) => ({
-  statusCode: responseCode,
-  body: JSON.stringify(
-      body,
-    null,
-    2,
-  ),
-})
+function response(responseCode: number, body: object) {
+  return {
+    statusCode: responseCode,
+    body: JSON.stringify(body,
+      null,
+      2,
+    )
+  }
+}

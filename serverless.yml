@@ -58,6 +58,56 @@ functions:
             type: COGNITO_USER_POOLS
             authorizerId:
               Ref: ApiGatewayAuthorizer
+  getAllImages:
+    handler: src/images/getAllImages.handler
+    events:
+      - http:
+          path: 'images/getAll'
+          method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+  postImage:
+    handler: src/images/postImage.handler
+    events:
+      - http:
+          path: 'images/post'
+          method: post
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+  deleteImage:
+    handler: src/images/deleteImage.handler
+    events:
+      - http:
+          path: 'images/delete'
+          method: delete
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+  getUsersImages:
+    handler: src/images/getUsersImages.handler
+    events:
+      - http:
+          path: 'images/getUsersImages'
+          method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+  getAllUsers:
+    handler: src/users/getUsers.handler
+    events:
+      - http:
+          path: 'users/getAll'
+          method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer   
 
 resources:
   - ${file(resources/cognito.yml)}
